@@ -6,6 +6,8 @@ import inspect
 import ctypes
 import time
 
+import logger
+
 def _async_raise(tid, exctype):
     '''Raises an exception in the threads with id tid'''
     if not inspect.isclass(exctype):
@@ -49,11 +51,10 @@ class Worker(threading.Thread):
         return self.working
 
     def is_doing_long_job(self, expected):
-        return (time.time() - self.job.start_at) > expected 
+        return self.job.to_now > expected 
 
     def report_and_quit(self):
-        print 'cost time %f' %(time.time() - self.job.start_at)
-        print self.job
+        logger.error('''One terrbile worker is to be stoped accdentily, it's job info is %s''' %self.job)
 
 class KillableWorker(Worker):
     '''工人，负责完成任务列表中的任务'''

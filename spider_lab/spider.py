@@ -10,6 +10,7 @@ from pyquery import PyQuery as query
 
 from studio import managers
 from data_saver import Storage
+import logger
 from readability import Readability
 
 re_url = r'''
@@ -37,10 +38,16 @@ def validate_and_extract_basepath(url):
 
     raise NotValidUrl(url)
 
+def has_key(key, content):
+    if not key :return True
+    #return re.search(key, content) != None
+    return key in content
+    
 class NotValidUrl(Exception):
     
     def __init__(self, url):
         self.url = url
+        super(self.__class__, self).__init__()
     
     def __str__(self):
         return 'expect a url in format:[protocol://hostname:port/path?querystring],but given %s' %url
@@ -54,6 +61,7 @@ class Status(object):
         
     def __call__(self, func):
         def wrapper(obj):
+
             func(obj)
             
             self.desc = self.after
@@ -70,7 +78,10 @@ class Spider(managers.Job):
         self.url = url if url.startswith('http') else 'http://' + url
 
         if not is_url(self.url):
-            raise NotValidUrl(url)
+            raise ValueError('Expect a url in format:[protocol://hostname:port/path?querystring],but given %s' %url)
+        
+        if not isinstance(storage, Storage):
+            raise ValueError('The storage is supposed to be a object of Storage class!')
 
         self.level = level
         self.max_level = max_level
@@ -84,8 +95,8 @@ class Spider(managers.Job):
         super(Spider, self).__init__(self)
     
     def __call__(self):
-    
-        self.start_at = time.time()
+        
+        logger.info("开始抓取%s的内容,页面深度%d" %(self.url, self.level))
         
         self.read()
         
@@ -95,7 +106,7 @@ class Spider(managers.Job):
             
         if self.can_deepin():self.generate()
         
-        self.duration = time.time() - self.start_at
+        logger.info("来自%s的内容已经处理完成, 耗时%f" %(self.url, self.to_now))
         
     def put_into_pool(self, spider, pool=None):
         pool = pool or self.pool
@@ -125,7 +136,9 @@ class Spider(managers.Job):
     
     @Status('保存正文开始', '保存正文结束')
     def save(self):
-        if self.url not in self.storage:
+       
+        if has_key(self.keyword, self.article.title) and \
+                             self.url not in self.storage:
             self.storage.save_content(self.article.url, self.article.title, self.article.content)
     
     def can_deepin(self):
@@ -143,8 +156,8 @@ class Spider(managers.Job):
                 self.put_into_pool(Spider(href, self.pool, self.storage, self.level+1, self.keyword, self.max_level))
             self.links.pop()
 
-    def handle_exception(self, exception=None):
-        print traceback.print_exc()
+    def handle_exception(self, exception):
+        traceback.print_exc()
     
     def __str__(self):
         return '''
@@ -153,11 +166,4 @@ class Spider(managers.Job):
                ''' %(self.status, self.level, self.url)
 
        
-class StatefulSpider(Spider):
-    
-    def __init__(self, url, pool, storage, 
-                        level = 1, keyword='', max_level=5):
-
-        super(StatefulSpider, self).__init__(url, pool, storage,
-                                              level, keyword, max_level)
 

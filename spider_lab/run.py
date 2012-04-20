@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-import os
 import socket
-import sqlite3
 from optparse import OptionParser
 
 from studio import managers
 from spider import Spider
 from data_saver import Storage
+import logger
 
 parser = OptionParser()
 parser.add_option("-u", "--url", dest="url",
@@ -21,10 +20,10 @@ parser.add_option("-f", dest="log_file",
                   help=u"日志文件路径，默认为%default。", 
                   default="spider.log", metavar="LOG_FILE")                 
 
-parser.add_option("-l", "--loglevl", dest="log_level",
-                  help=u"日志文件路径，默认为%default。",  metavar="LOG_LEVEL")
+parser.add_option("-l", "--loglevl", dest="log_level", default='1', type='int',
+                  help=u"日志级别，默认为%default。",  metavar="LOG_LEVEL")
 
-parser.add_option("-k", "--key", dest="kyeword",
+parser.add_option("-k", "--key", dest="keyword",
                   help=u"查询关键字，不输入则无差别提取。", 
                   default="", metavar="KEYWORD")    
                   
@@ -36,11 +35,18 @@ parser.add_option("--thread", dest="num_of_threads", type='int', help=u"线程�
 parser.add_option("--dbfile", dest="db_file", help=u"采集数据存储文件。")
 
 def main():
+ 
       options, args = parser.parse_args()
+      
       socket.setdefaulttimeout(30)
+      
       storage = Storage(options.db_file)
-      worker_manager = managers.NormalManager(options.num_of_threads, max_wait_time=100)
-      spider = Spider(options.url, worker_manager, storage, max_level = options.max_level)
+      
+      logger.init(options.log_level, options.log_file)
+      
+      worker_manager = managers.NormalManager(options.num_of_threads, max_wait_time=400)
+      spider = Spider(options.url, worker_manager, storage, 
+                    keyword=options.keyword, max_level = options.max_level)
       worker_manager.put_job(spider)
       worker_manager.start()
 

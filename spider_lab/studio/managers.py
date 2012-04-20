@@ -1,11 +1,11 @@
 #!/usr/bin/python
 # coding:utf-8
 
-import threading
 import Queue
 import time
 
 import workers 
+import logger
 
 class Job(object):
 
@@ -16,12 +16,20 @@ class Job(object):
 
     def do(self):
         try:
+            self.start_at = time.time()
             self.result = self.process(*self.args, **self.kwargs)
+            self.duration = time.time() - self.start_at
         except Exception, e:
             self.handle_exception(e) 
 
-    def handle_exception(self, exception=None):
+    def handle_exception(self, exception):
         print exception
+    
+    @property
+    def to_now(self):
+        return time.time() - self.start_at
+
+class NoIdleWorkerException(Exception):pass        
 
 class NormalManager(object):
     
@@ -32,15 +40,23 @@ class NormalManager(object):
         self._job_queue = Queue.Queue(job_size) 
         self._job_in_process = Queue.Queue()
         self.workers = []
-        self.poll = 5
+        self.poll = poll
         self.max_wait_time = max_wait_time
         
         for i in range(self._num_of_workers):
             self.workers.append(self.worker_class(self))
+        
+        logger.info('''A worker manager is created, %d workers supplied,\n
+                a job's max wait time is %f, poll time is %f''' 
+                %(len(self.workers), self.max_wait_time, self.poll))
 
     def put_job(self, job, block=True, timeout=10):
         #todo : job类型检查，确定是Job的子类
-        self._job_queue.put(job, block, timeout)
+        try:
+            self._job_queue.put(job, block, timeout)
+        except Queue.Full, e:
+            logger.warning('All workers are busy now, more workers are needed!')
+            raise NoIdleWorkerException('There is no idle worker now!')
 
     def getback_failed_job(self, job, block=True, timeout=10):
         self.put_job(job, block, timeout)
@@ -51,6 +67,7 @@ class NormalManager(object):
             self._job_in_process.put(1)
             return job
         except Queue.Empty:
+            logger.info('There is no job')
             return None
 
     def finish_one_job(self):
@@ -60,12 +77,14 @@ class NormalManager(object):
             pass
 
     def start(self):
+        logger.info('%d workers will start working' %len(self.workers))
+
         for worker in self.workers:
             worker.start()
+
         while True:
             try:
-                print 'there is %d jobs' %self._job_in_process.qsize()
-                print 'there is %d busy worker' %len([w for w in self.workers if w.is_working()])
+                logger.debug('there is %d jobs' %self._job_in_process.qsize())
                 time.sleep(self.poll)
                 self.check_terrible_worker()
                 if self._job_in_process.empty():
@@ -75,11 +94,13 @@ class NormalManager(object):
                 raise
     
     def check_terrible_worker(self):
-
+        count = 1
         for worker in self.workers:
             if(worker.is_working() and worker.is_doing_long_job(self.max_wait_time)):
                 self.handle_terrible_worker(worker)
-                
+                count += 1
+        logger.warning('有%d个工作者超时工作，最长期望时间为%f' %(count, self.max_wait_time))
+
     def handle_terrible_worker(self, worker):
         worker.report_and_quit()
                     
