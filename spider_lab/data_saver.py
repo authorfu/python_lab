@@ -8,7 +8,6 @@ class Storage(object):
     
     def __init__(self, db_file):
         self.db_file = db_file
-        init_db(self.db_file)
 
     def __connect(self):
         return sqlite3.connect(self.db_file)
@@ -26,19 +25,19 @@ class Storage(object):
                 return result.next()[0] > 0
             except:
                 return False
-
-def init_db(db_file):
-    db_file = os.path.join(os.getcwd(), db_file)
-
-    if os.path.exists(db_file) and \
-           raw_input('数据库已存在，是否删除？[y/n]:') == 'y':
-        os.remove(db_file)
-    else:
-        return
     
-    with sqlite3.connect(db_file) as db:
-        db.execute('create table web_page(url text, title text, content text)');
-        db.commit()
+    @staticmethod
+    def init_db(db_file, force=False):
+
+        if os.path.exists(db_file):
+            if force or raw_input('数据库已存在，是否删除？[y/n]:') == 'y':
+                os.remove(db_file)
+            else:
+                return
+        
+        with sqlite3.connect(db_file) as db:
+            db.execute('create table web_page(url text, title text, content text)');
+            db.commit()
     
 
                        

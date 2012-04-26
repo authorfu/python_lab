@@ -40,6 +40,7 @@ def main():
       
       socket.setdefaulttimeout(30)
       
+      Storage.init_db(options.db_file)
       storage = Storage(options.db_file)
       
       logger.init(options.log_level, options.log_file)

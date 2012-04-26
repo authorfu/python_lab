@@ -4,8 +4,8 @@
 import Queue
 import time
 
-import workers 
 import logger
+import workers
 
 class Job(object):
 
@@ -90,7 +90,11 @@ class NormalManager(object):
                 if self._job_in_process.empty():
                     self.stop()
                     break
+            except KeyboardInterrupt:
+                self.stop()
+                break
             except:
+                self.stop()
                 raise
     
     def check_terrible_worker(self):
