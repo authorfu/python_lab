@@ -5,7 +5,7 @@ from pyquery import PyQuery as Query
 import urllib
 import re
 
-NEWLINE="\r\n"
+NEWLINE="\r\n"*3
 
 class OnlyPoster(object):
 
@@ -32,18 +32,18 @@ class OnlyPoster(object):
     # 分析帖子，返回发帖人，帖子内容, 每个子类都必须实现
     def parse_post(self, post):
         post = Query(post)
-        return post('h1').text(), post('.page-content').text()
+        return " "*4 + post('h1').text(), " "*4 + post('.page-content').text()
     
     def get_poster(self):
-        self.author = self.parse_post(self.posts[0])[0]
+        pass 
 
     def save_one_page(self):
         title_and_content = self.parse_post(self.page)
+        print title_and_content[0]
         self.output.write(NEWLINE.join(title_and_content).encode('utf8') + NEWLINE)
 
     def parse_pages(self):
-        page_num = self.page('#pageForm')('span:first').text()
-        self.total = int(page_num[1:][:-1])
+        pass
 
     def download_and_save(self):
         for i in self.pages:
